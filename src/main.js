@@ -5,12 +5,18 @@
  *
  * 设计:UI 与网页版一比一(直接加载官方 dsh web 服务器与官方前端 dist),
  * 桌面层只负责原生外壳:服务器托管/复用、窗口、托盘、菜单、单实例。
+ *
+ * 服务器生命周期:
+ *   1. 探测 127.0.0.1:3080,已有官方 dsh 服务器则直接复用(attach);
+ *   2. 否则用内置 @deepseek-ai/dsh 自建(ELECTRON_RUN_AS_NODE);
+ *   3. 内置缺失/失败时自动回退到 `npx -y @deepseek-ai/dsh web`(无需用户手动);
+ *   4. 运行期间每 5 秒探活,掉线(含复用的外部服务器被关闭)自动恢复并重载页面。
  */
 
 const {
   app, BrowserWindow, Tray, Menu, Notification, dialog, shell, nativeImage,
 } = require("electron");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -33,16 +39,21 @@ const FORCE_PORT = (() => {
   const v = Number(process.argv[i + 1]);
   return Number.isFinite(v) ? v : null;
 })();
+/** 诊断开关:跳过内置 bin,强制走 npx 回退路径。 */
+const FORCE_NPX = process.env.DSH_FORCE_NPX === "1";
 
 // ---------------------------------------------------------------------------
 // 状态
 // ---------------------------------------------------------------------------
 let mainWindow = null;
 let tray = null;
-let serverProc = null; // 我们 spawn 的子进程(attach 模式为 null)
+let serverProc = null; // 当前服务器的子进程(attach 模式为 null)
 let serverOwned = false; // 服务器是否由本应用托管
 let serverUrl = null;
 let quitting = false;
+let restarting = null; // 自动恢复的进行中 Promise(防重入)
+let healthTimer = null; // 探活定时器
+let retryTimer = null; // 启动失败自动重试定时器
 let settings = { closeToTray: true, workspace: null };
 
 const log = (...args) => console.log("[desktop]", ...args);
@@ -111,6 +122,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------------------------------------------------------------------------
 /** 解析 @deepseek-ai/dsh 的 bin 入口(兼容有/无 asar 两种打包布局)。 */
 function resolveDshBin() {
+  if (FORCE_NPX) return null;
   const candidates = [];
   if (app.isPackaged) {
     const base = process.resourcesPath;
@@ -129,21 +141,34 @@ function resolveDshBin() {
 }
 
 /**
- * 以 ELECTRON_RUN_AS_NODE 方式 spawn 官方 dsh web 服务器。
+ * spawn 一次 dsh web 服务器。kind = "builtin" | "npx"。
  * 返回 { child, url, exited, exit } —— url 从 stdout 的 "dsh web: ..." 行解析。
  */
-function spawnDsh(port) {
-  const bin = resolveDshBin();
-  if (!bin) throw new Error("找不到 dsh 服务器入口(node_modules/@deepseek-ai/dsh 未安装)");
-  const args = [bin, "web", "--host", HOST, "--port", String(port)];
+function spawnDsh(port, kind) {
   const workspace = settings.workspace || os.homedir();
-  const child = spawn(process.execPath, args, {
-    cwd: workspace,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
-  const handle = { child, url: null, exited: false, exit: null };
+  let child;
+  if (kind === "npx") {
+    // 自动完成用户手动执行的 `npx @deepseek-ai/dsh web`(Windows 经 cmd 调用 npx)
+    child = spawn("cmd.exe", [
+      "/d", "/s", "/c",
+      `npx -y @deepseek-ai/dsh web --host ${HOST} --port ${port}`,
+    ], {
+      cwd: workspace,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  } else {
+    const bin = resolveDshBin();
+    if (!bin) throw new Error("找不到 dsh 服务器入口(node_modules/@deepseek-ai/dsh 未安装)");
+    child = spawn(process.execPath, [bin, "web", "--host", HOST, "--port", String(port)], {
+      cwd: workspace,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  }
+  const handle = { child, url: null, exited: false, exit: null, kind };
   let out = "";
   let err = "";
   child.stdout.on("data", (d) => {
@@ -157,6 +182,36 @@ function spawnDsh(port) {
     handle.exit = { code, sig, stderr: err.trim(), stdout: out.trim() };
   });
   return handle;
+}
+
+/** 在指定端口启动一次服务器(内置 bin 优先,npx 自动回退);成功返回 true。 */
+async function trySpawn(port) {
+  const kinds = resolveDshBin() ? ["builtin", "npx"] : ["npx"];
+  for (const kind of kinds) {
+    const handle = spawnDsh(port, kind);
+    serverProc = handle;
+    const deadline = Date.now() + 20000;
+    while (!handle.url && !handle.exited && Date.now() < deadline) await sleep(100);
+    if (!handle.url && !handle.exited && port !== 0) {
+      // URL 行没抓到就直接探测目标端口
+      if ((await probe(`http://${HOST}:${port}`)) === "dsh") {
+        handle.url = `http://${HOST}:${port}`;
+      }
+    }
+    if (handle.url && (await waitForDsh(handle.url, 30000))) {
+      serverUrl = handle.url;
+      serverOwned = true;
+      log(`已启动内置服务器(${kind}): ${serverUrl} (工作目录: ${settings.workspace || os.homedir()})`);
+      watchServerCrash();
+      return true;
+    }
+    const why = handle.exit
+      ? `退出码 ${handle.exit.code}: ${(handle.exit.stderr || "无输出").split("\n").slice(-4).join("\n")}`
+      : "等待就绪超时";
+    log(`端口 ${port} (${kind}) 启动失败: ${why}`);
+    if (serverProc === handle) serverProc = null;
+  }
+  return false;
 }
 
 /** 启动(或复用)服务器,成功后设置 serverUrl / serverOwned。 */
@@ -184,88 +239,96 @@ async function startServer() {
   for (const port of ports) {
     if (await trySpawn(port)) return;
   }
-  throw new Error("无法启动 dsh web 服务器(请检查端口占用或 @deepseek-ai/dsh 安装)");
+  throw new Error("无法启动 dsh web 服务器(请检查端口占用、Node 环境或 @deepseek-ai/dsh 安装)");
 }
 
-/** 在指定端口 spawn 一次服务器;成功返回 true。 */
-async function trySpawn(port) {
-  const handle = spawnDsh(port);
-  serverProc = handle;
-  const deadline = Date.now() + 20000;
-  while (!handle.url && !handle.exited && Date.now() < deadline) await sleep(100);
-  if (!handle.url && !handle.exited && port !== 0) {
-    // 某些情况下 URL 行可能没抓到,直接探测目标端口
-    if ((await probe(`http://${HOST}:${port}`)) === "dsh") {
-      handle.url = `http://${HOST}:${port}`;
-    }
+/**
+ * 结束服务器进程树。Windows 下 child.kill() 只杀直接子进程:
+ * npx 路径(spawn cmd.exe → npx → node)会留下孤儿 node 继续占端口,
+ * 必须用 taskkill /T 杀掉整棵树。
+ */
+function killTree(child) {
+  if (!child || !child.pid) return;
+  if (process.platform === "win32") {
+    try {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+        windowsHide: true, stdio: "ignore",
+      });
+    } catch { /* 已退出 */ }
   }
-  if (handle.url && (await waitForDsh(handle.url, 30000))) {
-    serverUrl = handle.url;
-    serverOwned = true;
-    log(`已启动内置服务器: ${serverUrl} (工作目录: ${settings.workspace || os.homedir()})`);
-    watchServerCrash();
-    return true;
-  }
-  const why = handle.exit
-    ? `退出码 ${handle.exit.code}: ${(handle.exit.stderr || "无输出").split("\n").slice(-4).join("\n")}`
-    : "等待就绪超时";
-  log(`端口 ${port} 启动失败: ${why}`);
-  if (serverProc === handle) serverProc = null;
-  return false;
+  try { child.kill(); } catch { /* 已退出 */ }
 }
 
 function stopServer() {
   if (serverProc && serverOwned) {
     const h = serverProc;
     serverProc = null;
-    try { h.child.kill(); } catch { /* 已退出 */ }
+    killTree(h.child);
   }
 }
 
-/** 托管的服务器意外退出时,询问是否重启。 */
+/** 托管的服务器进程退出时自动重启(不弹窗打扰)。 */
 function watchServerCrash() {
   if (!serverProc) return;
-  serverProc.child.on("exit", async (code) => {
+  const h = serverProc;
+  h.child.on("exit", (code) => {
+    if (serverProc !== h) return; // 已被替换,旧句柄退出无需处理
     serverProc = null;
     if (quitting || SMOKE) return;
-    log(`内置服务器退出,code=${code}`);
-    const { response } = await dialog.showMessageBox({
-      type: "warning",
-      title: "服务器已停止",
-      message: "DeepSeek Harness 内置服务器意外退出。",
-      detail: `退出码: ${code}\n是否重新启动服务器?`,
-      buttons: ["重新启动", "退出应用"],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (response === 0) {
-      try {
-        await startServer();
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(serverUrl);
-      } catch (e) {
-        dialog.showErrorBox("启动失败", String(e.message || e));
-      }
-    } else {
-      quitting = true;
-      app.quit();
-    }
+    log(`内置服务器退出 code=${code},自动恢复…`);
+    handleServerDown();
   });
 }
 
-/** 页面加载失败(例如复用的服务器后来退出了)→ 尝试接管/重启。 */
+/**
+ * 服务器不可用(复用的外部服务器被关闭 / 托管进程崩溃 / 无响应)。
+ * 自动重新获取服务器并重载页面;失败则通知用户。防重入。
+ */
+function handleServerDown() {
+  if (quitting || SMOKE) return Promise.resolve();
+  if (restarting) return restarting;
+  restarting = (async () => {
+    log("服务器不可用,自动恢复…");
+    if (serverProc) { killTree(serverProc.child); serverProc = null; }
+    serverUrl = null;
+    serverOwned = false;
+    try {
+      await startServer();
+      if (mainWindow && !mainWindow.isDestroyed() && serverUrl) mainWindow.loadURL(serverUrl);
+      log("自动恢复完成:", serverUrl);
+    } catch (e) {
+      log("自动恢复失败:", (e && e.message) || e);
+      new Notification({
+        title: "DeepSeek Harness",
+        body: "服务器自动恢复失败,将稍后重试。",
+      }).show();
+    } finally {
+      restarting = null;
+    }
+  })();
+  return restarting;
+}
+
+/** 运行期探活:每 5 秒确认服务器仍在,掉线即自动恢复。 */
+function startHealthWatch() {
+  if (healthTimer) clearInterval(healthTimer);
+  healthTimer = setInterval(async () => {
+    if (quitting || !serverUrl || restarting) return;
+    if ((await probe(serverUrl)) === "dsh") return;
+    log(`探活失败: ${serverUrl} 无响应`);
+    handleServerDown();
+  }, 5000);
+}
+
+/** 页面加载失败(例如服务器在加载瞬间退出)→ 自动恢复并重载。 */
 async function handleLoadFailure() {
   if (quitting || SMOKE) return;
   log("页面加载失败,尝试重新获取服务器…");
-  try {
-    if (!serverProc) await startServer();
-    if (mainWindow && !mainWindow.isDestroyed() && serverUrl) mainWindow.loadURL(serverUrl);
-  } catch (e) {
-    dialog.showErrorBox("连接失败", String(e.message || e));
-  }
+  await handleServerDown();
 }
 
 // ---------------------------------------------------------------------------
-// 窗口
+// 窗口 / 状态页
 // ---------------------------------------------------------------------------
 const boundsFile = () => path.join(app.getPath("userData"), "window-state.json");
 function loadBounds() {
@@ -278,6 +341,26 @@ function loadBounds() {
 function saveBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   try { fs.writeFileSync(boundsFile(), JSON.stringify(mainWindow.getBounds())); } catch { /* 忽略 */ }
+}
+
+/** 在窗口内显示状态页(启动中 / 失败重试),避免白屏与闪退观感。 */
+function showStatus(title, detail) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>DeepSeek Harness</title>
+<style>
+  html,body{height:100%;margin:0;background:#0b0e14;color:#c9d1d9;font:15px/1.7 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;display:flex;align-items:center;justify-content:center}
+  .box{max-width:560px;padding:32px;text-align:center}
+  h1{font-size:22px;color:#e6edf3;margin:12px 0}
+  p{margin:6px 0;opacity:.85}
+  .dot{color:#58a6ff;font-weight:600}
+</style></head><body>
+<div class="box">
+  <svg width="64" height="64" viewBox="0 0 50 50" fill="none"><path d="M48.8 10c-.5-.2-.7.3-1 .5-.1.1-.2.2-.3.3-.8.8-1.7 1.4-2.8 1.3-1.7-.1-3.1.4-4.4 1.7-.3-1.6-1.2-2.5-2.5-3.1-.7-.4-1.4-.7-1.9-1.4-.4-.5-.5-1-.6-1.6-.1-.3-.2-.6-.6-.7-.4-.1-.6.3-.7.5-.6 1.2-.9 2.5-.9 3.8.1 3 1.3 5.3 3.7 7-.3.2-.3.4-.4.7-.2.6-.4 1.1-.5 1.7-.1.4-.3.4-.7.3-1.3-.6-2.5-1.4-3.5-2.4-1.7-1.7-3.3-3.6-5.2-5.1-.5-.3-.9-.7-1.4-1-2-2 .2-3.6.8-3.8.5-.2.1-.9-1.6-.9-3.4 0-1.6.6-3.7 1.4-.3.1-.6.2-1 .3-1.8-.4-3.8-.5-5.8-.2-3.8.4-6.8 2.2-9 5.4-2.7 3.8-3.3 8-2.6 12.5.8 4.7 3.2 8.6 6.8 11.6 3.7 3.2 8 4.7 13 4.4 3-.2 6.3-.6 10-3.8 1 .5 2 .7 3.6.8 1.3.1 2.5-.1 3.4-.3 1.5-.3 1.4-1.7.9-1.9-4.4-2.1-3.4-1.2-4.3-1.9 2.2-2.7 5.6-5.4 6.9-14.4.1-.7 0-1.2 0-1.7 0-.4.1-.5.5-.6 1.1-.1 2.1-.4 3.1-1 2.8-1.5 3.9-4.1 4.2-7.2 0-.5 0-1-.5-1.2z"/></svg>
+  <h1>DeepSeek Harness</h1>
+  <p class="dot">${title}</p>
+  <p>${detail || ""}</p>
+</div></body></html>`;
+  mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html)).catch(() => {});
 }
 
 function createWindow() {
@@ -301,7 +384,7 @@ function createWindow() {
   });
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
-  mainWindow.loadURL(serverUrl);
+  showStatus("正在启动服务器…", "首次启动或复用外部服务器时可能需要几秒到几十秒。");
 
   // 外链交给系统浏览器,不在应用内跳转(保持 1:1 页面)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -309,6 +392,7 @@ function createWindow() {
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (e, url) => {
+    if (url.startsWith("data:")) return; // 状态页允许
     if (serverUrl && url.startsWith(serverUrl)) return;
     e.preventDefault();
     if (/^https?:/.test(url)) shell.openExternal(url);
@@ -326,19 +410,20 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
   mainWindow.on("move", saveBounds);
   mainWindow.on("resize", saveBounds);
-  mainWindow.webContents.on("did-fail-load", (_e, code, desc) => {
+  mainWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
+    if (url.startsWith("data:")) return;
     if (code === -3) return; // ERR_ABORTED:主动中断(如重新加载)不算失败
     log(`did-fail-load ${code} ${desc}`);
     handleLoadFailure();
   });
-
-  if (SMOKE) runSmoke();
 }
 
-/** 冒烟测试结束:先停掉自己托管的服务器,再退出。 */
-function finishSmoke(code) {
-  stopServer();
-  app.exit(code);
+/** 服务器就绪后加载官方 UI。 */
+function loadMainUi() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (!serverUrl) return;
+  mainWindow.loadURL(serverUrl);
+  if (SMOKE) runSmoke();
 }
 
 // ---------------------------------------------------------------------------
@@ -352,13 +437,24 @@ function runSmoke() {
       console.log("[smoke]", JSON.stringify(result));
       const ok = result.boot && String(result.title).includes("DeepSeek Harness")
         && String(result.url).startsWith(serverUrl);
-      finishSmoke(ok ? 0 : 1);
+      finishSmoke(ok ? 0 : 1, JSON.stringify(result));
     } catch (e) {
       console.log("[smoke] 校验失败:", e);
-      finishSmoke(1);
+      finishSmoke(1, String(e));
     }
   });
-  setTimeout(() => { console.log("[smoke] 超时"); finishSmoke(2); }, 60000).unref();
+  setTimeout(() => { console.log("[smoke] 超时"); finishSmoke(2, "timeout"); }, 60000).unref();
+}
+
+/** 冒烟测试结束:结果写入 userData/smoke-result.json(不依赖 stdout 捕获,可被自动化读取),再退出。 */
+function finishSmoke(code, note = "") {
+  try {
+    fs.writeFileSync(
+      path.join(app.getPath("userData"), "smoke-result.json"),
+      JSON.stringify({ code, ok: code === 0, note, time: Date.now() }));
+  } catch { /* 忽略 */ }
+  stopServer();
+  setTimeout(() => app.exit(code), 200);
 }
 
 // ---------------------------------------------------------------------------
@@ -440,20 +536,13 @@ function buildMenu() {
 // ---------------------------------------------------------------------------
 async function bootstrap() {
   loadSettings();
+  createWindow(); // 先出窗口(状态页),服务器后台启动
+  buildMenu();
+  if (!SMOKE) createTray();
   try {
     await startServer();
-  } catch (e) {
-    const msg = String((e && e.message) || e);
-    log("启动失败:", msg);
-    if (!SMOKE) dialog.showErrorBox("DeepSeek Harness 启动失败", msg);
-    stopServer();
-    app.exit(1);
-    return;
-  }
-  createWindow();
-  buildMenu();
-  if (!SMOKE) {
-    createTray();
+    loadMainUi();
+    startHealthWatch();
     if (serverOwned && !settings.firstRunDone) {
       settings.firstRunDone = true;
       saveSettings();
@@ -462,6 +551,36 @@ async function bootstrap() {
         body: `服务器运行于 ${serverUrl}\n关闭窗口后应用会驻留托盘,可随时恢复。`,
       }).show();
     }
+  } catch (e) {
+    const msg = String((e && e.message) || e);
+    log("启动失败:", msg);
+    if (SMOKE) {
+      try {
+        fs.writeFileSync(
+          path.join(app.getPath("userData"), "smoke-result.json"),
+          JSON.stringify({ code: 1, ok: false, note: msg, time: Date.now() }));
+      } catch { /* 忽略 */ }
+      stopServer();
+      app.exit(1);
+      return;
+    }
+    // 窗口内显示失败状态并每 10 秒自动重试(不闪退、不弹窗打断)
+    showStatus("服务器启动失败,自动重试中…", msg);
+    retryTimer = setInterval(async () => {
+      if (quitting || serverUrl) { clearInterval(retryTimer); retryTimer = null; return; }
+      try {
+        await startServer();
+        if (serverUrl) {
+          clearInterval(retryTimer);
+          retryTimer = null;
+          loadMainUi();
+          startHealthWatch();
+        }
+      } catch (e2) {
+        log("重试失败:", (e2 && e2.message) || e2);
+        showStatus("服务器启动失败,自动重试中…", (e2 && e2.message) || String(e2));
+      }
+    }, 10000);
   }
 }
 
@@ -469,7 +588,9 @@ app.setAppUserModelId("ai.deepseek.harness.desktop");
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
-  app.quit();
+  // SMOKE 用退出码 9 区分"被单实例锁拒绝"(否则会与冒烟成功 exit 0 混淆,造成假阳性)
+  log("另一个实例正在运行,当前实例退出");
+  app.exit(SMOKE ? 9 : 0);
 } else {
   app.on("second-instance", () => {
     if (mainWindow) {
@@ -478,7 +599,12 @@ if (!gotLock) {
       mainWindow.focus();
     }
   });
-  app.on("before-quit", () => { quitting = true; stopServer(); });
+  app.on("before-quit", () => {
+    quitting = true;
+    if (healthTimer) clearInterval(healthTimer);
+    if (retryTimer) clearInterval(retryTimer);
+    stopServer();
+  });
   // Windows/Linux: 窗口全关后保持托盘驻留(托盘"退出"才会真正退出)
   app.on("window-all-closed", () => { /* 保留在托盘 */ });
   app.whenReady().then(bootstrap);
