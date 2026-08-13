@@ -1,5 +1,9 @@
 # DeepSeek Harness 桌面版 (Desktop)
 
+![GitHub Release](https://img.shields.io/github/v/release/chyra-moon/deepseek-harness-desktop)
+![License](https://img.shields.io/github/license/chyra-moon/deepseek-harness-desktop)
+![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue)
+
 > ⚠️ **社区项目,非官方出品**:本项目是第三方社区开发的桌面外壳,
 > 与 DeepSeek 公司无隶属关系。DeepSeek Harness 本体、`@deepseek-ai/*` 软件包
 > 及官方前端版权归 [deepseek-ai](https://github.com/deepseek-ai) 及其贡献者所有,
@@ -17,6 +21,11 @@ Electron 只提供原生桌面外壳:窗口、托盘、菜单、服务器托管�
 - **服务器托管**:应用内置官方 `dsh` 服务器,双击即用,无需手动开终端
 - **智能复用**:若 `127.0.0.1:3080` 已有官方服务器在运行(例如浏览器版),
   桌面版直接复用,不重复启动
+- **掉线自动恢复**:运行期间每 5 秒探活;复用的外部服务器被关闭时,
+  自动自建接管并重载页面(不再出现"UI 还在但发不了消息")
+- **自动回退 npx**:内置服务器缺失或启动失败时,自动执行
+  `npx -y @deepseek-ai/dsh web` —— 用户手动跑 npx 那一步由应用代劳
+- **崩溃自动重启**:托管的服务器意外退出时自动拉起并恢复页面(静默完成)
 - **系统托盘**:关闭窗口后驻留托盘,随时恢复;托盘菜单可打开浏览器、退出
 - **原生菜单**:在浏览器中打开 / 重新加载 / 开发者工具 / 缩放 / 关于等
 - **单实例**:重复启动只会聚焦已有窗口
@@ -45,7 +54,8 @@ npm run smoke -- --port 0     # 自建模式:强制启动一个内置服务器(�
 ```
 
 自动启动、加载页面、校验 `window.__DSH_BOOT__` 注入与页面标题,然后退出
-(退出码 0 = 通过,1 = 校验失败,2 = 超时)。`--port N` 可强制自建服务器到
+(退出码 0 = 通过,1 = 校验失败,2 = 超时,9 = 被单实例锁拒绝)。结果同时写入
+`userData/smoke-result.json`,供自动化读取。`--port N` 可强制自建服务器到
 指定端口并跳过复用逻辑(0 = 系统分配),也适用于正常启动:
 `npm start -- --port 0`。
 
