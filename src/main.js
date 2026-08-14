@@ -59,6 +59,19 @@ let settings = { closeToTray: true, workspace: null };
 const log = (...args) => console.log("[desktop]", ...args);
 
 // ---------------------------------------------------------------------------
+// 错误兜底:主进程异常写日志(userData/error.log),不再弹系统级报错框吓用户
+// ---------------------------------------------------------------------------
+function logError(kind, e) {
+  try {
+    fs.appendFileSync(
+      path.join(app.getPath("userData"), "error.log"),
+      `[${new Date().toISOString()}] ${kind}: ${(e && e.stack) || e}\n`);
+  } catch { /* 忽略 */ }
+}
+process.on("uncaughtException", (e) => logError("uncaughtException", e));
+process.on("unhandledRejection", (e) => logError("unhandledRejection", e));
+
+// ---------------------------------------------------------------------------
 // 小工具
 // ---------------------------------------------------------------------------
 const settingsFile = () => path.join(app.getPath("userData"), "settings.json");
@@ -294,14 +307,19 @@ function handleServerDown() {
     serverOwned = false;
     try {
       await startServer();
-      if (mainWindow && !mainWindow.isDestroyed() && serverUrl) mainWindow.loadURL(serverUrl);
+      if (mainWindow && !mainWindow.isDestroyed() && serverUrl) {
+        mainWindow.loadURL(serverUrl).catch((e) => log("恢复后重载失败:", (e && e.message) || e));
+      }
       log("自动恢复完成:", serverUrl);
     } catch (e) {
       log("自动恢复失败:", (e && e.message) || e);
-      new Notification({
-        title: "DeepSeek Harness",
-        body: "服务器自动恢复失败,将稍后重试。",
-      }).show();
+      logError("handleServerDown", e);
+      try {
+        new Notification({
+          title: "DeepSeek Harness",
+          body: "服务器自动恢复失败,将稍后重试。",
+        }).show();
+      } catch (e2) { log("通知失败:", (e2 && e2.message) || e2); }
     } finally {
       restarting = null;
     }
@@ -326,7 +344,6 @@ async function handleLoadFailure() {
   log("页面加载失败,尝试重新获取服务器…");
   await handleServerDown();
 }
-
 // ---------------------------------------------------------------------------
 // 窗口 / 状态页
 // ---------------------------------------------------------------------------
@@ -418,7 +435,7 @@ function createWindow() {
     if (url.startsWith("data:")) return;
     if (code === -3) return; // ERR_ABORTED:主动中断(如重新加载)不算失败
     log(`did-fail-load ${code} ${desc}`);
-    handleLoadFailure();
+    handleLoadFailure().catch((e) => log("加载失败处理异常:", (e && e.message) || e));
   });
 }
 
@@ -426,7 +443,7 @@ function createWindow() {
 function loadMainUi() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (!serverUrl) return;
-  mainWindow.loadURL(serverUrl);
+  mainWindow.loadURL(serverUrl).catch((e) => log("loadURL 失败:", (e && e.message) || e));
   if (SMOKE) runSmoke();
 }
 
@@ -508,7 +525,7 @@ async function bootstrap() {
   loadSettings();
   createWindow(); // 先出窗口(状态页),服务器后台启动
   Menu.setApplicationMenu(null); // 纯净窗口:无菜单栏,快捷键见 createWindow
-  if (!SMOKE) createTray();
+  if (!SMOKE) { try { createTray(); } catch (e) { log("托盘创建失败:", (e && e.message) || e); } }
   try {
     await startServer();
     loadMainUi();
@@ -516,10 +533,12 @@ async function bootstrap() {
     if (serverOwned && !settings.firstRunDone) {
       settings.firstRunDone = true;
       saveSettings();
-      new Notification({
-        title: "DeepSeek Harness 已启动",
-        body: `服务器运行于 ${serverUrl}\n关闭窗口后应用会驻留托盘,可随时恢复。`,
-      }).show();
+      try {
+        new Notification({
+          title: "DeepSeek Harness 已启动",
+          body: `服务器运行于 ${serverUrl}\n关闭窗口后应用会驻留托盘,可随时恢复。`,
+        }).show();
+      } catch (e3) { log("通知失败:", (e3 && e3.message) || e3); }
     }
   } catch (e) {
     const msg = String((e && e.message) || e);
