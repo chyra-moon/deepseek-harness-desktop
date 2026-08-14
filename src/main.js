@@ -21,6 +21,7 @@ const http = require("node:http");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
+const { buildStatusHtml } = require("./status-page");
 
 // 远程桌面/无 GPU 环境下 Chromium 的硬件加速路径会偶发 fail-fast
 // (CoreMessaging.dll / GPU process 崩溃);DSH UI 为纯 2D 页面,禁用无副作用。
@@ -28,7 +29,6 @@ app.disableHardwareAcceleration();
 
 const HOST = "127.0.0.1";
 const DEFAULT_PORT = 3080;
-const GITHUB_URL = "https://github.com/deepseek-ai/deepseek-harness";
 /** index.html 中出现的标题,用于识别"这是官方 dsh 前端"。 */
 const INDEX_MARKER = "DeepSeek Harness";
 const SMOKE = process.argv.includes("--smoke");
@@ -346,21 +346,7 @@ function saveBounds() {
 /** 在窗口内显示状态页(启动中 / 失败重试),避免白屏与闪退观感。 */
 function showStatus(title, detail) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>DeepSeek Harness</title>
-<style>
-  html,body{height:100%;margin:0;background:#0b0e14;color:#c9d1d9;font:15px/1.7 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;display:flex;align-items:center;justify-content:center}
-  .box{max-width:560px;padding:32px;text-align:center}
-  h1{font-size:22px;color:#e6edf3;margin:12px 0}
-  p{margin:6px 0;opacity:.85}
-  .dot{color:#58a6ff;font-weight:600}
-</style></head><body>
-<div class="box">
-  <svg width="64" height="64" viewBox="0 0 50 50" fill="none"><path d="M48.8 10c-.5-.2-.7.3-1 .5-.1.1-.2.2-.3.3-.8.8-1.7 1.4-2.8 1.3-1.7-.1-3.1.4-4.4 1.7-.3-1.6-1.2-2.5-2.5-3.1-.7-.4-1.4-.7-1.9-1.4-.4-.5-.5-1-.6-1.6-.1-.3-.2-.6-.6-.7-.4-.1-.6.3-.7.5-.6 1.2-.9 2.5-.9 3.8.1 3 1.3 5.3 3.7 7-.3.2-.3.4-.4.7-.2.6-.4 1.1-.5 1.7-.1.4-.3.4-.7.3-1.3-.6-2.5-1.4-3.5-2.4-1.7-1.7-3.3-3.6-5.2-5.1-.5-.3-.9-.7-1.4-1-2-2 .2-3.6.8-3.8.5-.2.1-.9-1.6-.9-3.4 0-1.6.6-3.7 1.4-.3.1-.6.2-1 .3-1.8-.4-3.8-.5-5.8-.2-3.8.4-6.8 2.2-9 5.4-2.7 3.8-3.3 8-2.6 12.5.8 4.7 3.2 8.6 6.8 11.6 3.7 3.2 8 4.7 13 4.4 3-.2 6.3-.6 10-3.8 1 .5 2 .7 3.6.8 1.3.1 2.5-.1 3.4-.3 1.5-.3 1.4-1.7.9-1.9-4.4-2.1-3.4-1.2-4.3-1.9 2.2-2.7 5.6-5.4 6.9-14.4.1-.7 0-1.2 0-1.7 0-.4.1-.5.5-.6 1.1-.1 2.1-.4 3.1-1 2.8-1.5 3.9-4.1 4.2-7.2 0-.5 0-1-.5-1.2z"/></svg>
-  <h1>DeepSeek Harness</h1>
-  <p class="dot">${title}</p>
-  <p>${detail || ""}</p>
-</div></body></html>`;
-  mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html)).catch(() => {});
+  mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(buildStatusHtml(title, detail))).catch(() => {});
 }
 
 function createWindow() {
@@ -396,6 +382,24 @@ function createWindow() {
     if (serverUrl && url.startsWith(serverUrl)) return;
     e.preventDefault();
     if (/^https?:/.test(url)) shell.openExternal(url);
+  });
+
+  // 无菜单栏后的键盘快捷键(替代原"文件/编辑/视图"菜单):
+  //   Ctrl+Shift+I 开发者工具 | Ctrl+R / F5 重载 | Ctrl+Shift+O 在浏览器中打开
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    const ctrl = input.control || input.meta;
+    const key = String(input.key).toLowerCase();
+    if (ctrl && input.shift && key === "i") {
+      mainWindow.webContents.toggleDevTools();
+      event.preventDefault();
+    } else if ((ctrl && key === "r") || input.key === "F5") {
+      mainWindow.webContents.reload();
+      event.preventDefault();
+    } else if (ctrl && input.shift && key === "o") {
+      if (serverUrl) shell.openExternal(serverUrl);
+      event.preventDefault();
+    }
   });
 
   // 关闭 → 最小化到托盘(可关闭)
@@ -476,59 +480,25 @@ function createTray() {
     { label: "显示 / 隐藏主窗口", click: toggleWindow },
     { label: "在浏览器中打开", enabled: !!serverUrl, click: () => serverUrl && shell.openExternal(serverUrl) },
     { type: "separator" },
+    { label: "关于", click: () => {
+      dialog.showMessageBox({
+        type: "info",
+        title: "关于 DeepSeek Harness",
+        message: "DeepSeek Harness 桌面版",
+        detail: [
+          `版本: ${app.getVersion()}`,
+          `Electron: ${process.versions.electron}`,
+          `服务器: ${serverUrl || "未启动"}`,
+          `服务器模式: ${serverOwned ? "内置(本应用托管)" : "复用外部实例"}`,
+          `工作目录: ${settings.workspace || os.homedir()}`,
+        ].join("\n"),
+        buttons: ["确定"],
+      });
+    } },
+    { type: "separator" },
     { label: "退出", click: () => { quitting = true; app.quit(); } },
   ]));
   tray.on("click", toggleWindow);
-}
-
-function buildMenu() {
-  const isMac = process.platform === "darwin";
-  const template = [
-    ...(isMac ? [{ role: "appMenu" }] : []),
-    {
-      label: "文件",
-      submenu: [
-        { label: "在浏览器中打开", accelerator: "CmdOrCtrl+Shift+O",
-          enabled: !!serverUrl, click: () => serverUrl && shell.openExternal(serverUrl) },
-        { type: "separator" },
-        { label: "关闭窗口到托盘", type: "checkbox", checked: settings.closeToTray,
-          click: (item) => { settings.closeToTray = item.checked; saveSettings(); } },
-        ...(!isMac ? [{ type: "separator" }, { role: "quit", label: "退出" }] : []),
-      ],
-    },
-    { label: "编辑", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" },
-      { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
-    { label: "视图", submenu: [{ role: "reload", label: "重新加载" },
-      { role: "forceReload", label: "强制重新加载" },
-      { role: "toggleDevTools", label: "开发者工具" }, { type: "separator" },
-      { role: "resetZoom", label: "实际大小" }, { role: "zoomIn", label: "放大" },
-      { role: "zoomOut", label: "缩小" }, { type: "separator" },
-      { role: "togglefullscreen", label: "全屏" }] },
-    { label: "窗口", submenu: [{ role: "minimize" }, { role: "zoom" },
-      ...(!isMac ? [{ role: "close" }] : [])] },
-    {
-      label: "帮助",
-      submenu: [
-        { label: "DeepSeek Harness GitHub", click: () => shell.openExternal(GITHUB_URL) },
-        { label: "关于", click: () => {
-          dialog.showMessageBox({
-            type: "info",
-            title: "关于 DeepSeek Harness",
-            message: "DeepSeek Harness 桌面版",
-            detail: [
-              `版本: ${app.getVersion()}`,
-              `Electron: ${process.versions.electron}`,
-              `服务器: ${serverUrl || "未启动"}`,
-              `服务器模式: ${serverOwned ? "内置(本应用托管)" : "复用外部实例"}`,
-              `工作目录: ${settings.workspace || os.homedir()}`,
-            ].join("\n"),
-            buttons: ["确定"],
-          });
-        } },
-      ],
-    },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // ---------------------------------------------------------------------------
@@ -537,7 +507,7 @@ function buildMenu() {
 async function bootstrap() {
   loadSettings();
   createWindow(); // 先出窗口(状态页),服务器后台启动
-  buildMenu();
+  Menu.setApplicationMenu(null); // 纯净窗口:无菜单栏,快捷键见 createWindow
   if (!SMOKE) createTray();
   try {
     await startServer();
