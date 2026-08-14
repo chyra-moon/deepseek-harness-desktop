@@ -54,7 +54,7 @@ let quitting = false;
 let restarting = null; // 自动恢复的进行中 Promise(防重入)
 let healthTimer = null; // 探活定时器
 let retryTimer = null; // 启动失败自动重试定时器
-let settings = { closeToTray: true, workspace: null };
+let settings = { closeToTray: true, workspace: null, directoryPicker: "native" };
 
 const log = (...args) => console.log("[desktop]", ...args);
 
@@ -153,6 +153,15 @@ function resolveDshBin() {
   return null;
 }
 
+/** 服务器子进程的环境:directoryPicker=browse 时设置 SSH_CONNECTION,
+ *  让 dsh 的目录选择器解析器挂载应用内浏览选择器(唯一消费者,已确认无副作用),
+ *  规避远程桌面会话下原生对话框 worker 崩溃导致"打不开新工作区"。 */
+function serverEnv(extra = {}) {
+  const env = { ...process.env, ...extra };
+  if (settings.directoryPicker === "browse") env.SSH_CONNECTION = "desktop-shell-browse";
+  return env;
+}
+
 /**
  * spawn 一次 dsh web 服务器。kind = "builtin" | "npx"。
  * 返回 { child, url, exited, exit } —— url 从 stdout 的 "dsh web: ..." 行解析。
@@ -167,7 +176,7 @@ function spawnDsh(port, kind) {
       `npx -y @deepseek-ai/dsh web --host ${HOST} --port ${port}`,
     ], {
       cwd: workspace,
-      env: process.env,
+      env: serverEnv(),
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -176,7 +185,7 @@ function spawnDsh(port, kind) {
     if (!bin) throw new Error("找不到 dsh 服务器入口(node_modules/@deepseek-ai/dsh 未安装)");
     child = spawn(process.execPath, [bin, "web", "--host", HOST, "--port", String(port)], {
       cwd: workspace,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      env: serverEnv({ ELECTRON_RUN_AS_NODE: "1" }),
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });

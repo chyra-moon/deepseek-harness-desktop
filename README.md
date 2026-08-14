@@ -46,6 +46,7 @@ npm run preview -- --open         # 浏览器实时预览加载动画
 
 - **杀毒软件报毒**：社区未签名应用的常见误报；源码全部公开，可自行审计或从源码构建
 - **不想关窗口驻留托盘**：在应用数据目录的 `settings.json` 里设置 `"closeToTray": false`
+- **工作区选择器打不开**（远程桌面环境）：`settings.json` 里设置 `"directoryPicker": "browse"` 改用应用内浏览选择器（`"native"` 为 Windows 原生对话框，默认值）
 - **想用最新官方版**：跑官方最新的 `npx @deepseek-ai/dsh web`，桌面版会自动复用
 
 ## 许可
