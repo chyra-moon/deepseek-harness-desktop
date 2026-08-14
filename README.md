@@ -77,6 +77,30 @@ npm run dist
 > 本项目已把全部 peer 依赖显式声明在 `package.json` 的 `dependencies` 中,
 > 并用 `electron-packager` 原样复制依赖树,保证运行时自包含。
 
+## 更新官方 dsh
+
+官方发新版后,两种方式跟上:
+
+**自动感知(已配置)**:
+
+- [Dependabot](.github/dependabot.yml) 每周扫描 `@deepseek-ai/*`(含 dsh 本体),
+  官方一发新版就自动开**聚合升级 PR**;
+- [CI](.github/workflows/ci.yml) 对每个 PR 跑 Windows 冒烟(装依赖 → 语法检查 →
+  内置服务器起真服务加载官方 UI 校验 `__DSH_BOOT__`),绿了再合并。
+
+**一键升级出包**:
+
+```bash
+npm run update:dsh              # 查最新版 → 对齐全部 dsh-* 依赖 → 安装 → 冒烟 → 出包
+npm run update:dsh -- --dry-run # 只预览版本改动
+npm run update:dsh -- --force   # 版本未变时强制重跑冒烟+出包
+```
+
+脚本只对齐 dsh monorepo 家族(`@deepseek-ai/dsh` 精确锁定,`@deepseek-ai/dsh-*`
+用 `^` 对齐到同一版本,避免同仓版本错位);`cordis` / `cordis-plugin-*` /
+`schemastery` 是独立版本线的库,交给 Dependabot 单独升级。冒烟不通过会中止,不会出坏包。
+完成后照脚本末尾提示 commit + 发 Release 即可。
+
 ## 配置
 
 设置保存在 Electron `userData` 目录的 `settings.json`:
@@ -96,7 +120,8 @@ npm run dist
 │   └── preload.js     # 只读桌面环境信息(window.dshDesktop),不干预页面
 ├── scripts/
 │   ├── make-icon.js           # 由官方 favicon.svg 生成 icon.png / tray.png
-│   └── scan-deps-bounded.js   # 打包产物依赖完整性体检(诊断工具)
+│   ├── scan-deps-bounded.js   # 打包产物依赖完整性体检(诊断工具)
+│   └── update-dsh.js          # 一键升级官方 dsh 并重新出包
 ├── assets/            # 生成的图标
 └── package.json
 ```

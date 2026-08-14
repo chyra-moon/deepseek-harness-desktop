@@ -13,6 +13,7 @@
     "smoke": "electron . --smoke",
     "package:app": "electron-packager . \"DeepSeek Harness\" --platform=win32 --arch=x64 --out=release --icon=assets/icon.png --overwrite",
     "pack": "npm run package:app",
+    "update:dsh": "node scripts/update-dsh.js",
     "dist": "npm run package:app && electron-builder --win --prepackaged \"release/DeepSeek Harness-win32-x64\""
   },
   "dependencies": {
