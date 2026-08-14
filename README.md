@@ -20,7 +20,8 @@ Electron 只提供原生桌面外壳:窗口、托盘、菜单、服务器托管�
 - **零配置,双击即用**:安装包自带 Electron 运行时(内嵌 Node)与完整依赖树,
   **用户无需安装 Node.js 或任何环境**;应用自动托管官方 `dsh` 服务器
 - **一比一 UI**:与浏览器版完全相同的界面与交互(同一个前端,同一个服务器)
-- **启动动画**:白/蓝光点构成的官方鲸鱼(呼吸动画)加载页,启动与恢复时展示
+- **启动动画**:官方鲸鱼光点加载页 —— 形状 1:1 取自官方 favicon(身体 +
+  肚皮/眼睛/水花三处白色镂空),蓝/白光点构成,呼吸式起伏,纯 canvas 无图片资源
 - **智能复用**:若 `127.0.0.1:3080` 已有官方服务器在运行(例如浏览器版),
   桌面版直接复用,不重复启动
 - **掉线自动恢复**:运行期间每 5 秒探活;复用的外部服务器被关闭时,
@@ -124,11 +125,14 @@ npm run update:dsh -- --force   # 版本未变时强制重跑冒烟+出包
 ├── src/
 │   ├── main.js          # Electron 主进程:服务器托管、窗口、托盘、单实例、快捷键
 │   ├── preload.js       # 只读桌面环境信息(window.dshDesktop),不干预页面
-│   └── status-page.js   # 鲸鱼光点加载动画页(纯 canvas,无图片资源)
+│   ├── status-page.js   # 鲸鱼光点加载动画页(纯 canvas,无图片资源)
+│   └── whale-path.json  # 官方鲸鱼图标路径(由 scripts/gen-whale-path.js 生成)
 ├── scripts/
 │   ├── make-icon.js           # 由官方 favicon.svg 生成 icon.png / tray.png
 │   ├── scan-deps-bounded.js   # 打包产物依赖完整性体检(诊断工具)
-│   └── update-dsh.js          # 一键升级官方 dsh 并重新出包
+│   ├── update-dsh.js          # 一键升级官方 dsh 并重新出包
+│   ├── gen-whale-path.js      # 从官方 favicon.svg 提取鲸鱼图标路径
+│   └── preview-status.js      # 生成加载动画预览页(npm run preview -- --open)
 ├── assets/            # 生成的图标
 └── package.json
 ```

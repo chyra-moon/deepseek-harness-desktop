@@ -6,3 +6,6 @@ assets/icon-256.png
 assets/tray.png
 assets/tray@2x.png
 *.log
+preview-status.html
+.tmp-*
+.shot-app/
