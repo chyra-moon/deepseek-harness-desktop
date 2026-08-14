@@ -77,7 +77,9 @@ process.on("unhandledRejection", (e) => logError("unhandledRejection", e));
 const settingsFile = () => path.join(app.getPath("userData"), "settings.json");
 function loadSettings() {
   try {
-    settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsFile(), "utf8")) };
+    // 兼容带 BOM 的 UTF-8(部分编辑器/工具写出 BOM 会让 JSON.parse 抛错)
+    const text = fs.readFileSync(settingsFile(), "utf8").replace(/^\uFEFF/, "");
+    settings = { ...settings, ...JSON.parse(text) };
   } catch { /* 首次运行无配置文件 */ }
 }
 function saveSettings() {
