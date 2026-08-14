@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    name: 语法检查 + 内置服务器冒烟 (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check
+        run: node --check src/main.js
+
+      # 自建内置服务器 -> 加载官方 UI -> 校验 __DSH_BOOT__ 注入
+      # 退出码: 0 通过 / 1 校验失败 / 2 超时 / 9 单实例锁拒绝
+      - name: Smoke test (builtin server)
+        run: npm run smoke -- --port 0
+        timeout-minutes: 8

@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # 盯官方 @deepseek-ai/* 生态包(含 @deepseek-ai/dsh 本体与 cordis)。
+  # 官方发新版 -> 自动开一个聚合 PR(deepseek-ai 分组),CI 会跑冒烟测试。
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    allow:
+      - dependency-name: "@deepseek-ai/*"
+    groups:
+      deepseek-ai:
+        patterns:
+          - "@deepseek-ai/*"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    open-pull-requests-limit: 3
+
+  # 顺手盯 GitHub Actions 自身
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
