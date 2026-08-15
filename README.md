@@ -1,3 +1,7 @@
+<div align="center">
+  简体中文 | <a href="README_EN.md">English</a>
+</div>
+
 # DeepSeek Harness 桌面版
 
 ![GitHub Release](https://img.shields.io/github/v/release/chyra-moon/deepseek-harness-desktop)
