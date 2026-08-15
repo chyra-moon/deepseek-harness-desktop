@@ -23,6 +23,15 @@ const fs = require("node:fs");
 const os = require("node:os");
 const { buildStatusHtml } = require("./status-page");
 
+// 若从带控制台的父进程(批处理/计划任务/终端)启动,Electron 会继承其控制台,
+// 脚本退出后留下一个空终端窗口。这里主动脱离控制台,该窗口随即消失;
+// 从桌面双击启动时本就没有控制台,此调用无副作用。
+try {
+  const k = require("koffi");
+  const koffi = k.default || k;
+  koffi.load("kernel32.dll").func("__stdcall", "FreeConsole", "int", [])();
+} catch { /* koffi 不可用时忽略 */ }
+
 // 远程桌面/无 GPU 环境下 Chromium 的硬件加速路径会偶发 fail-fast
 // (CoreMessaging.dll / GPU process 崩溃);DSH UI 为纯 2D 页面,禁用无副作用。
 app.disableHardwareAcceleration();
