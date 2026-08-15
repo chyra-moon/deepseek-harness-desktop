@@ -1,7 +1,7 @@
 ﻿{
   "name": "deepseek-harness-desktop",
   "productName": "DeepSeek Harness",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "DeepSeek Harness desktop app: the official dsh web UI in a native Electron shell, with embedded server management, tray and notifications.",
   "main": "src/main.js",
   "author": "DeepSeek Harness Desktop",
