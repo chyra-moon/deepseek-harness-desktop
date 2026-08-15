@@ -10,7 +10,7 @@ jobs:
     name: 语法检查 + 内置服务器冒烟 (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
