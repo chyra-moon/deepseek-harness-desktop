@@ -15,7 +15,9 @@
     "package:app": "electron-packager . \"DeepSeek Harness\" --platform=win32 --arch=x64 --out=release --icon=assets/icon.png --overwrite",
     "pack": "npm run package:app",
     "update:dsh": "node scripts/update-dsh.js",
-    "dist": "npm run package:app && electron-builder --win --prepackaged \"release/DeepSeek Harness-win32-x64\""
+    "zip": "tar -a -c -f \"release/DeepSeek Harness-0.1.0-win32-x64.zip\" -C release \"DeepSeek Harness-win32-x64\"",
+    "verify": "node scripts/verify-package.js",
+    "dist": "npm run package:app && electron-builder --win --prepackaged \"release/DeepSeek Harness-win32-x64\" && npm run zip && npm run verify"
   },
   "dependencies": {
     "@cfworker/json-schema": "^4.1.1",
