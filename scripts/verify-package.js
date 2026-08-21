@@ -34,9 +34,9 @@ const CHECKS = [
 ];
 
 const ARTIFACTS = [
-  ["NSIS 安装包", path.join(ROOT, "release", "DeepSeek Harness-0.1.0-x64.exe")],
-  ["便携版", path.join(ROOT, "release", "DeepSeek Harness-0.1.0-portable-x64.exe")],
-  ["解压版(zip)", path.join(ROOT, "release", "DeepSeek Harness-0.1.0-win32-x64.zip")],
+  ["NSIS 安装包", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-x64.exe")],
+  ["便携版", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-portable-x64.exe")],
+  ["解压版(zip)", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-win32-x64.zip")],
 ];
 
 let failed = 0;
