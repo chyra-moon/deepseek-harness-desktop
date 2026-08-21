@@ -1,7 +1,7 @@
 {
   "name": "deepseek-harness-desktop",
   "productName": "DeepSeek Harness",
-  "version": "0.1.1",
+  "version": "0.1.1-rc.1",
   "description": "DeepSeek Harness desktop app: the official dsh web UI in a native Electron shell, with embedded server management, tray and notifications.",
   "main": "src/main.js",
   "author": "DeepSeek Harness Desktop",
@@ -15,7 +15,7 @@
     "package:app": "electron-packager . \"DeepSeek Harness\" --platform=win32 --arch=x64 --out=release --icon=assets/icon.png --overwrite",
     "pack": "npm run package:app",
     "update:dsh": "node scripts/update-dsh.js",
-    "zip": "tar -a -c -f \"release/DeepSeek Harness-0.1.1-win32-x64.zip\" -C release \"DeepSeek Harness-win32-x64\"",
+    "zip": "tar -a -c -f \"release/DeepSeek Harness-0.1.1-rc.1-win32-x64.zip\" -C release \"DeepSeek Harness-win32-x64\"",
     "verify": "node scripts/verify-package.js",
     "dist": "npm run package:app && electron-builder --win --prepackaged \"release/DeepSeek Harness-win32-x64\" && npm run zip && npm run verify"
   },
@@ -116,7 +116,8 @@
     "@deepseek-ai/dsh-user-questions": "^0.1.1-rc.1",
     "@deepseek-ai/dsh-web": "^0.1.1-rc.1",
     "@deepseek-ai/dsh-workflow": "^0.1.1-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "electron-updater": "^6.6.0"
   },
   "devDependencies": {
     "electron": "^37.2.0",
@@ -170,7 +171,13 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable-${arch}.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.invalid/dsh"
+      }
+    ]
   },
   "allowScripts": {
     "koffi@3.1.6": true,

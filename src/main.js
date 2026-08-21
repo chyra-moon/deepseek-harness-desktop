@@ -22,6 +22,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 const { buildStatusHtml } = require("./status-page");
+const { startAutoUpdate, isUpdating } = require("./updater");
 
 // 若从带控制台的父进程(批处理/计划任务/终端)启动,Electron 会继承其控制台,
 // 脚本退出后留下一个空终端窗口。这里主动脱离控制台,该窗口随即消失;
@@ -63,6 +64,8 @@ let quitting = false;
 let restarting = null; // 自动恢复的进行中 Promise(防重入)
 let healthTimer = null; // 探活定时器
 let retryTimer = null; // 启动失败自动重试定时器
+let statusPageActive = false; // 鲸鱼状态页是否显示中(更新进度只写状态页)
+let pendingLoadUi = false;    // 更新期间服务器已就绪,待更新流程结束后载入主 UI
 let settings = { closeToTray: true, workspace: null, directoryPicker: "native" };
 
 const log = (...args) => console.log("[desktop]", ...args);
@@ -383,6 +386,7 @@ function saveBounds() {
 /** 在窗口内显示状态页(启动中 / 失败重试),避免白屏与闪退观感。 */
 function showStatus(title, detail) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  statusPageActive = true;
   mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(buildStatusHtml(title, detail))).catch(() => {});
 }
 
@@ -463,6 +467,9 @@ function createWindow() {
 function loadMainUi() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (!serverUrl) return;
+  // 自动更新进行中:保持鲸鱼状态页显示进度,更新流程结束后再载入(见 resumeAfterUpdate)
+  if (isUpdating()) { pendingLoadUi = true; return; }
+  statusPageActive = false;
   mainWindow.loadURL(serverUrl).catch((e) => log("loadURL 失败:", (e && e.message) || e));
   if (SMOKE) runSmoke();
 }
@@ -545,6 +552,20 @@ async function bootstrap() {
   loadSettings();
   createWindow(); // 先出窗口(状态页),服务器后台启动
   Menu.setApplicationMenu(null); // 纯净窗口:无菜单栏,快捷键见 createWindow
+  // 自动更新(仅打包版;--no-update 可跳过;未配置更新源时静默跳过)
+  if (app.isPackaged && !SMOKE && !process.argv.includes("--no-update")) {
+    startAutoUpdate({
+      onStatus: (t, d) => showStatus(t, d),
+      onProgress: (p) => {
+        if (!statusPageActive || !mainWindow || mainWindow.isDestroyed()) return;
+        mainWindow.webContents.executeJavaScript(
+          `window.__setProgress && window.__setProgress(${JSON.stringify(p)})`).catch(() => { });
+      },
+      onDone: () => {
+        if (pendingLoadUi && serverUrl) { pendingLoadUi = false; loadMainUi(); }
+      },
+    });
+  }
   if (!SMOKE) { try { createTray(); } catch (e) { log("托盘创建失败:", (e && e.message) || e); } }
   try {
     await startServer();

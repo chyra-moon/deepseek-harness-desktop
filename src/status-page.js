@@ -32,6 +32,12 @@ function buildStatusHtml(title, detail) {
   canvas{display:block}
   .t{color:#1f2328;font-size:20px;font-weight:600;margin-top:30px;letter-spacing:.5px}
   .d{color:#57606a;font-size:13px;margin-top:8px;opacity:.9;text-align:center;max-width:540px;line-height:1.7;padding:0 20px}
+  .prog-wrap{display:none;flex-direction:column;align-items:center;width:300px;max-width:80vw;margin-top:22px}
+  .prog{width:100%;height:6px;border-radius:999px;background:#e8edf7;position:relative;overflow:hidden}
+  .prog-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#4d6bfe,#7aa0ff);box-shadow:0 0 14px rgba(77,107,254,.45);position:relative;transition:width .2s ease-out}
+  .prog-fill::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:pb-sweep 1.5s ease-in-out infinite}
+  @keyframes pb-sweep{0%{left:-40%}100%{left:100%}}
+  .prog-meta{color:#57606a;font-size:12px;margin-top:8px;opacity:.9}
 </style></head><body>
 <svg width="60" height="60" viewBox="0 0 50 50">
   <path id="p0" d=${body}></path>
@@ -42,6 +48,7 @@ function buildStatusHtml(title, detail) {
 <canvas id="cv"></canvas>
 <div class="t"><span id="tt"></span><span id="dots"></span></div>
 <div class="d" id="dd"></div>
+<div class="prog-wrap" id="pw"><div class="prog"><div class="prog-fill" id="pb"></div></div><div class="prog-meta" id="pm"></div></div>
 <script>
 (function () {
   var TITLE = ${t};
@@ -55,8 +62,39 @@ function buildStatusHtml(title, detail) {
   var tt = document.getElementById("tt");
   var dd = document.getElementById("dd");
   var dotsEl = document.getElementById("dots");
+  var pw = document.getElementById("pw");
+  var pb = document.getElementById("pb");
+  var pm = document.getElementById("pm");
   tt.textContent = TITLE;
   dd.textContent = DETAIL;
+
+  // --- 供主进程实时更新(executeJavaScript 调用) ---
+  function fmtSpeed(bps) {
+    if (bps >= 1048576) return (bps / 1048576).toFixed(1) + " MB/s";
+    if (bps >= 1024) return Math.round(bps / 1024) + " KB/s";
+    return Math.round(bps) + " B/s";
+  }
+  function fmtSize(b) {
+    if (b >= 1073741824) return (b / 1073741824).toFixed(1) + " GB";
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + " MB";
+    if (b >= 1024) return Math.round(b / 1024) + " KB";
+    return Math.round(b) + " B";
+  }
+  window.__setStatus = function (title, detail) {
+    tt.textContent = title || "";
+    dd.textContent = detail || "";
+  };
+  window.__setProgress = function (p) {
+    if (!pw || !pb) return;
+    var pct = Math.max(0, Math.min(100, +(p && p.percent) || 0));
+    pw.style.display = "flex";
+    pb.style.width = pct + "%";
+    dd.textContent = ""; // 清除残留的初始详情行
+    var meta = pct.toFixed(0) + "%";
+    if (p && p.speed) meta += " · " + fmtSpeed(p.speed);
+    if (p && p.transferred && p.total) meta += " · " + fmtSize(p.transferred) + " / " + fmtSize(p.total);
+    pm.textContent = meta;
+  };
 
   try {
 
