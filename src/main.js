@@ -183,11 +183,13 @@ function serverEnv(extra = {}) {
 function spawnDsh(port, kind) {
   const workspace = settings.workspace || os.homedir();
   let child;
+  // --no-open:官方 dsh web 默认会调用系统默认浏览器打开界面;桌面版自身就是
+  // 界面,不需要这个跳转(否则每次启动都会弹一个浏览器标签页)。
   if (kind === "npx") {
     // 自动完成用户手动执行的 `npx @deepseek-ai/dsh web`(Windows 经 cmd 调用 npx)
     child = spawn("cmd.exe", [
       "/d", "/s", "/c",
-      `npx -y @deepseek-ai/dsh web --host ${HOST} --port ${port}`,
+      `npx -y @deepseek-ai/dsh web --host ${HOST} --port ${port} --no-open`,
     ], {
       cwd: workspace,
       env: serverEnv(),
@@ -197,7 +199,7 @@ function spawnDsh(port, kind) {
   } else {
     const bin = resolveDshBin();
     if (!bin) throw new Error("找不到 dsh 服务器入口(node_modules/@deepseek-ai/dsh 未安装)");
-    child = spawn(process.execPath, [bin, "web", "--host", HOST, "--port", String(port)], {
+    child = spawn(process.execPath, [bin, "web", "--host", HOST, "--port", String(port), "--no-open"], {
       cwd: workspace,
       env: serverEnv({ ELECTRON_RUN_AS_NODE: "1" }),
       stdio: ["ignore", "pipe", "pipe"],

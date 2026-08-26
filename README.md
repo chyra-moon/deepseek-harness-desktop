@@ -24,9 +24,11 @@
 
 | 版本 | 链接 | 说明 |
 | --- | --- | --- |
-| 安装版（推荐） | [DeepSeek.Harness-0.1.0-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-x64.exe) | 桌面/开始菜单自动建快捷方式 |
-| 解压版 | [DeepSeek.Harness-0.1.0-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
-| 免安装便携版 | [DeepSeek.Harness-0.1.0-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
+| 安装版（推荐） | [DeepSeek Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | 桌面/开始菜单自动建快捷方式 |
+| 解压版 | [DeepSeek Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
+| 免安装便携版 | [DeepSeek Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
+
+> 注：桌面版版本号与官方 dsh 保持一致（当前内置官方 `@deepseek-ai/dsh@0.1.1-rc.2`）。GitHub Releases 的 `latest/download` 需要精确文件名，发版后请核对链接与 Release 页一致（见 `package.json` 的 `win.artifactName`）。
 
 快捷键：`Ctrl+Shift+I` 开发者工具 · `Ctrl+R` 重载 · `Ctrl+Shift+O` 在浏览器打开。
 关闭窗口会驻留托盘，托盘右键可退出或查看关于信息。
@@ -34,7 +36,7 @@
 ## 从源码运行
 
 ```bash
-npm install && npm start      # 首次使用前先执行 npm run icon 生成图标
+npm install && npm start      # 图标缺失时会自动生成,也可手动 npm run icon
 ```
 
 其他常用命令：
@@ -53,6 +55,7 @@ npm run preview -- --open         # 浏览器实时预览加载动画
 - **杀毒软件报毒**：社区未签名应用的常见误报；源码全部公开，可自行审计或从源码构建
 - **不想关窗口驻留托盘**：在应用数据目录的 `settings.json` 里设置 `"closeToTray": false`
 - **工作区选择器打不开**（远程桌面环境）：`settings.json` 里设置 `"directoryPicker": "browse"` 改用应用内浏览选择器（`"native"` 为 Windows 原生对话框，默认值）
+- **中文路径添加工作区失败**：官方 0.1.1 系列原生目录选择器存在 UTF-16 截断 bug（已在上游讨论区报告），桌面版已在打包时自动修复（无需用户操作）；若仍失败请反馈具体报错
 - **想用最新官方版**：跑官方最新的 `npx @deepseek-ai/dsh web`，桌面版会自动复用
 
 ## 许可

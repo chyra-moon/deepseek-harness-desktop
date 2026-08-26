@@ -10,9 +10,11 @@
  *    (role=dialog aria-modal),若在模态打开时执行"移出即收起",
  *    会连带关闭设置面板(收起/展开反复触发,面板消失又出现)。
  *    因此模态打开期间暂停全部悬停自动化。
- * 4. 性能优化:设置模态的遮罩带全屏 backdrop-filter 模糊,
- *    Electron 中渲染代价极高(打开设置卡顿的主因),桌面版去掉
- *    模糊只保留半透明遮罩,观感几乎不变。
+ * 4. 性能优化:设置模态的遮罩带 backdrop-filter 模糊(由主题变量
+ *    --dsw-mask-blur 驱动,Electron 中渲染代价极高,是打开设置卡顿的主因)。
+ *    桌面版把该变量覆盖为 none 只保留半透明遮罩,观感几乎不变。
+ *    注意:直接覆盖变量而非选择器(官方 CSS 类名是哈希值,每次构建都会变,
+ *    如 .VOzbGW_mask -> _mask_15u5s_14),否则升级后必然失效。
  */
 const { contextBridge } = require("electron");
 
@@ -46,8 +48,13 @@ contextBridge.exposeInMainWorld("dshDesktop", {
     return document.querySelector(MODAL_SELECTOR) !== null;
   }
 
-  /** 设置模态遮罩的 backdrop-filter 模糊在 Electron 里很贵,桌面版去掉(保留半透明遮罩)。 */
-  const PERF_CSS = `.VOzbGW_mask{backdrop-filter:none!important}`;
+  /**
+   * 主题变量 --dsw-mask-blur 在 Electron 里很贵(设置面板遮罩的 backdrop-filter 模糊,
+   * 是打开设置卡顿的主因),桌面版覆盖为 none(保留半透明遮罩)。
+   * 注意:必须带 !important —— 主题把该变量定义在 body 上,且注入顺序在主题之后,
+   * 不带 it 会被主题规则覆盖(实测 body{--dsw-mask-blur:none} 不生效)。
+   */
+  const PERF_CSS = "body{--dsw-mask-blur:none!important}";
 
   function injectPerfCss() {
     try {

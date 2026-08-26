@@ -3,8 +3,10 @@
 /**
  * verify-package —— 打包产物完整性校验。
  * 检查 release/DeepSeek Harness-win32-x64 里的关键文件是否齐全:
- * 应用源码、官方 dsh 入口、目录选择器 worker、koffi 原生绑定、
- * 鲸鱼路径数据、安装包与压缩包。缺任何一项即退出码 1。
+ * 应用源码、官方 dsh 入口、目录选择器 worker(含 UTF-16 截断修复)、
+ * koffi 原生绑定、鲸鱼路径数据、安装包与压缩包。缺任何一项即退出码 1。
+ *
+ * 版本号从 package.json 读取,不硬编码,升级时无需改动本文件。
  *
  * 用法:npm run verify
  */
@@ -15,6 +17,11 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const APP = path.join(ROOT, "release", "DeepSeek Harness-win32-x64");
 const RES = path.join(APP, "resources", "app");
+const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+
+// 官方 0.1.1 中文路径截断 bug 的修复模式(见 scripts/patch-dsh.js);
+// 缺它意味着 worker.cjs 是未打补丁的官方原版,中文路径添加工作区会失败。
+const FIXED_READUTF16 = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)\s*\)\s*end\s*\+=\s*2\s*;/;
 
 const CHECKS = [
   // 应用源码(缺失 = Issue #3 所述症状)
@@ -34,9 +41,9 @@ const CHECKS = [
 ];
 
 const ARTIFACTS = [
-  ["NSIS 安装包", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-rc.1-x64.exe")],
-  ["便携版", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-rc.1-portable-x64.exe")],
-  ["解压版(zip)", path.join(ROOT, "release", "DeepSeek Harness-0.1.1-rc.1-win32-x64.zip")],
+  ["NSIS 安装包", path.join(ROOT, "release", `DeepSeek Harness-${VERSION}-x64.exe`)],
+  ["便携版", path.join(ROOT, "release", `DeepSeek Harness-${VERSION}-portable-x64.exe`)],
+  ["解压版(zip)", path.join(ROOT, "release", `DeepSeek Harness-${VERSION}-win32-x64.zip`)],
 ];
 
 let failed = 0;
@@ -46,6 +53,12 @@ for (const [name, p] of CHECKS) {
   console.log(`${ok ? "  ✓" : "  ✗ MISSING"} ${name}`);
   if (!ok) failed++;
 }
+
+// 补丁断言:worker.cjs 必须含 UTF-16 截断修复(防官方包更新导致 patch 失效)
+const workerPath = path.join(RES, "node_modules", "@deepseek-ai", "dsh-host-directory-picker-native", "lib", "worker.cjs");
+const workerPatched = fs.existsSync(workerPath) && FIXED_READUTF16.test(fs.readFileSync(workerPath, "utf8"));
+console.log(`${workerPatched ? "  ✓" : "  ✗ MISSING"} picker worker.cjs UTF-16 截断修复`);
+if (!workerPatched) failed++;
 
 console.log("=== 发布产物检查 ===");
 for (const [name, p] of ARTIFACTS) {

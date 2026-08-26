@@ -9,3 +9,8 @@ assets/tray@2x.png
 preview-status.html
 .tmp-*
 .shot-app/
+.npm-cache/
+.electron-cache/
+.dsh-test/
+.user-data-test/
+.ws-test/

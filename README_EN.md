@@ -1,5 +1,5 @@
-<div align="center">
-  <a href="README.md">简体中文</a> | English
+﻿<div align="center">
+  <a href="README.md">绠€浣撲腑鏂?/a> | English
 </div>
 
 # DeepSeek Harness Desktop
@@ -8,33 +8,33 @@
 ![License](https://img.shields.io/github/license/chyra-moon/deepseek-harness-desktop)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue)
 
-> ⚠️ **Community project; not an official release.** DeepSeek Harness itself, the `@deepseek-ai/*` packages, and the official frontend are copyrighted by [deepseek-ai](https://github.com/deepseek-ai) and their contributors.
+> 鈿狅笍 **Community project; not an official release.** DeepSeek Harness itself, the `@deepseek-ai/*` packages, and the official frontend are copyrighted by [deepseek-ai](https://github.com/deepseek-ai) and their contributors.
 
-Run the official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web UI as a Windows desktop app — **the same interface, the same server, ready with a double-click**.
+Run the official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web UI as a Windows desktop app 鈥?**the same interface, the same server, ready with a double-click**.
 
 ## Why use it?
 
-- 🎯 **Zero configuration**: No Node.js installation or command line required. Install it, double-click it, and get the official UI—not a replica or custom skin.
-- 🐳 **Bundled server**: The app hosts the official dsh server itself. If the web or CLI version is already running, the app automatically reuses it and shares the same session data.
-- 🔄 **Automatic recovery**: If an external server stops, the app takes over and restarts it within five seconds, then restores the page automatically.
-- 🖥 **A proper desktop experience**: System tray support, remembered window state, single-instance behavior, automatic crash recovery, and a clean menu-free window.
-- 🐋 **Whale loading animation**: The official whale is rendered with blue and white glowing dots, faithfully preserving details such as its belly, eye, and splash, with a gentle breathing motion.
+- 馃幆 **Zero configuration**: No Node.js installation or command line required. Install it, double-click it, and get the official UI鈥攏ot a replica or custom skin.
+- 馃惓 **Bundled server**: The app hosts the official dsh server itself. If the web or CLI version is already running, the app automatically reuses it and shares the same session data.
+- 馃攧 **Automatic recovery**: If an external server stops, the app takes over and restarts it within five seconds, then restores the page automatically.
+- 馃枼 **A proper desktop experience**: System tray support, remembered window state, single-instance behavior, automatic crash recovery, and a clean menu-free window.
+- 馃悑 **Whale loading animation**: The official whale is rendered with blue and white glowing dots, faithfully preserving details such as its belly, eye, and splash, with a gentle breathing motion.
 
 ## Download
 
 | Edition | Link | Description |
 | --- | --- | --- |
-| Installer (recommended) | [DeepSeek.Harness-0.1.0-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
-| Archive | [DeepSeek.Harness-0.1.0-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-win32-x64.zip) | Extract and run; the extraction progress is visible |
-| Portable | [DeepSeek.Harness-0.1.0-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.0-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
+| Installer (recommended) | [DeepSeek.Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
+| Archive | [DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | Extract and run; the extraction progress is visible |
+| Portable | [DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
 
-Keyboard shortcuts: `Ctrl+Shift+I` opens Developer Tools · `Ctrl+R` reloads · `Ctrl+Shift+O` opens the app in your browser.
+Keyboard shortcuts: `Ctrl+Shift+I` opens Developer Tools 路 `Ctrl+R` reloads 路 `Ctrl+Shift+O` opens the app in your browser.
 Closing the window keeps the app running in the system tray. Right-click the tray icon to quit or view app information.
 
 ## Run from source
 
 ```bash
-npm install && npm start      # Before the first run, use npm run icon to generate the icons
+npm install && npm start      # Icons are auto-generated when missing; you can also run npm run icon manually
 ```
 
 Other useful commands:
@@ -58,3 +58,6 @@ When the official dsh project publishes a new release, Dependabot automatically 
 ## License
 
 This project is open source under the [MIT License](LICENSE).
+
+
+
