@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <a href="README.md">绠€浣撲腑鏂?/a> | English
 </div>
 
@@ -24,9 +24,9 @@ Run the official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harn
 
 | Edition | Link | Description |
 | --- | --- | --- |
-| Installer (recommended) | [DeepSeek.Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
-| Archive | [DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | Extract and run; the extraction progress is visible |
-| Portable | [DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
+| Installer (recommended) | [DeepSeek.Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
+| Archive | [DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | Extract and run; the extraction progress is visible |
+| Portable | [DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
 
 Keyboard shortcuts: `Ctrl+Shift+I` opens Developer Tools 路 `Ctrl+R` reloads 路 `Ctrl+Shift+O` opens the app in your browser.
 Closing the window keeps the app running in the system tray. Right-click the tray icon to quit or view app information.
@@ -53,11 +53,13 @@ When the official dsh project publishes a new release, Dependabot automatically 
 - **Antivirus warning**: False positives are common for unsigned community applications. All source code is public, so you can audit it or build the app yourself.
 - **Do not keep the app in the system tray after closing the window**: Set `"closeToTray": false` in `settings.json` inside the app data directory.
 - **The workspace picker does not open in a Remote Desktop environment**: Set `"directoryPicker": "browse"` in `settings.json` to use the in-app browser. Use `"native"` for the default Windows dialog.
+- **Adding a workspace fails with a Chinese path**: The official 0.1.1 series native directory picker had a UTF-16 truncation bug (reported upstream); the desktop app patches it automatically at build time, no action needed. Please report the exact error if it still fails.
 - **Use the latest official version**: Run the latest official `npx @deepseek-ai/dsh web`; the desktop app will detect and reuse it automatically.
 
 ## License
 
 This project is open source under the [MIT License](LICENSE).
+
 
 
 

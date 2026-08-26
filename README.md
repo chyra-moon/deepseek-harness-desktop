@@ -24,11 +24,11 @@
 
 | 版本 | 链接 | 说明 |
 | --- | --- | --- |
-| 安装版（推荐） | [DeepSeek Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | 桌面/开始菜单自动建快捷方式 |
-| 解压版 | [DeepSeek Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
-| 免安装便携版 | [DeepSeek Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/latest/download/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
+| 安装版（推荐） | [DeepSeek Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | 桌面/开始菜单自动建快捷方式 |
+| 解压版 | [DeepSeek Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
+| 免安装便携版 | [DeepSeek Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
 
-> 注：桌面版版本号与官方 dsh 保持一致（当前内置官方 `@deepseek-ai/dsh@0.1.1-rc.2`）。GitHub Releases 的 `latest/download` 需要精确文件名，发版后请核对链接与 Release 页一致（见 `package.json` 的 `win.artifactName`）。
+> 桌面版版本号与官方 dsh 保持一致（当前内置官方 `@deepseek-ai/dsh@0.1.1-rc.2`）。链接使用精确版本路径；如需最新版，可在 [Releases 页面](https://github.com/chyra-moon/deepseek-harness-desktop/releases) 查看。
 
 快捷键：`Ctrl+Shift+I` 开发者工具 · `Ctrl+R` 重载 · `Ctrl+Shift+O` 在浏览器打开。
 关闭窗口会驻留托盘，托盘右键可退出或查看关于信息。
