@@ -30,7 +30,9 @@ const TARGET = path.join(
 
 // 宽松匹配以容忍缩进/换行变化
 const BROKEN_RE = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*bytes\[end\]\s*!==\s*0\s*\)\s*end\s*\+=\s*2\s*;/;
-const FIXED_RE = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)\s*\)\s*end\s*\+=\s*2\s*;/;
+// 官方 0.1.2-alpha.3 已内联修复,写法改为 `!(bytes[end] === 0 && bytes[end + 1] === 0)`;
+// 语义与本补丁改造后的 `(bytes[end] !== 0 || bytes[end + 1] !== 0)` 等价,一并识别为"已修复"。
+const FIXED_RE = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*(?:\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)|!\s*\(\s*bytes\[end\]\s*===\s*0\s*&&\s*bytes\[end\s*\+\s*1\]\s*===\s*0\s*\))\s*\)\s*end\s*\+=\s*2\s*;/;
 
 function main() {
   if (!fs.existsSync(TARGET)) {
