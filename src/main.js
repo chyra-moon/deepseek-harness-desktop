@@ -228,9 +228,7 @@ async function trySpawn(port) {
   for (const kind of kinds) {
     const handle = spawnDsh(port, kind);
     serverProc = handle;
-    // 冷启动(CI 虚拟机/杀软实时扫描/慢盘)下内置 dsh 首次加载插件树可能超过 20s,
-    // 放宽到 60s 以避免健康冒烟误报;仍是有界等待,真挂起的进程会在 60s 后回退 npx。
-    const deadline = Date.now() + 60000;
+    const deadline = Date.now() + 20000;
     while (!handle.url && !handle.exited && Date.now() < deadline) await sleep(100);
     if (!handle.url && !handle.exited && port !== 0) {
       // URL 行没抓到就直接探测目标端口
@@ -238,7 +236,7 @@ async function trySpawn(port) {
         handle.url = `http://${HOST}:${port}`;
       }
     }
-    if (handle.url && (await waitForDsh(handle.url, 60000))) {
+    if (handle.url && (await waitForDsh(handle.url, 30000))) {
       serverUrl = handle.url;
       serverOwned = true;
       log(`已启动内置服务器(${kind}): ${serverUrl} (工作目录: ${settings.workspace || os.homedir()})`);
