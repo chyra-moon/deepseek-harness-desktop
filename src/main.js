@@ -517,8 +517,12 @@ function runSmoke() {
       const result = await mainWindow.webContents.executeJavaScript(
         `({ title: document.title, boot: !!window.__DSH_BOOT__, url: location.href })`);
       console.log("[smoke]", JSON.stringify(result));
+      // 官方 dsh 0.1.2 起 token URL 会 303 重定向到 `/`(浏览器最终地址无 token),
+      // 因此按 origin 而非完整 URL 比对,避免误判。
+      let serverOrigin = serverUrl;
+      try { serverOrigin = new URL(serverUrl).origin; } catch { /* 保留原值 */ }
       const ok = result.boot && String(result.title).includes("DeepSeek Harness")
-        && String(result.url).startsWith(serverUrl);
+        && String(result.url).startsWith(serverOrigin);
       finishSmoke(ok ? 0 : 1, JSON.stringify(result));
     } catch (e) {
       console.log("[smoke] 校验失败:", e);
