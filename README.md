@@ -24,11 +24,11 @@
 
 | 版本 | 链接 | 说明 |
 | --- | --- | --- |
-| 安装版（推荐） | [DeepSeek Harness-0.1.1-rc.2-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-x64.exe) | 桌面/开始菜单自动建快捷方式 |
-| 解压版 | [DeepSeek Harness-0.1.1-rc.2-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
-| 免安装便携版 | [DeepSeek Harness-0.1.1-rc.2-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.1-rc.2/DeepSeek.Harness-0.1.1-rc.2-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
+| 安装版（推荐） | [DeepSeek Harness-0.1.2-rc.1-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-x64.exe) | 桌面/开始菜单自动建快捷方式 |
+| 解压版 | [DeepSeek Harness-0.1.2-rc.1-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-win32-x64.zip) | 解压即用，解压过程自带进度，最透明 |
+| 免安装便携版 | [DeepSeek Harness-0.1.2-rc.1-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-portable-x64.exe) | 单文件，首次启动需后台解压数分钟（无进度提示） |
 
-> 桌面版版本号与官方 dsh 保持一致（当前内置官方 `@deepseek-ai/dsh@0.1.1-rc.2`）。链接使用精确版本路径；如需最新版，可在 [Releases 页面](https://github.com/chyra-moon/deepseek-harness-desktop/releases) 查看。
+> 桌面版版本号与官方 dsh 保持一致（当前内置官方 `@deepseek-ai/dsh@0.1.2-rc.1`）。链接使用精确版本路径；如需最新版，可在 [Releases 页面](https://github.com/chyra-moon/deepseek-harness-desktop/releases) 查看。
 
 快捷键：`Ctrl+Shift+I` 开发者工具 · `Ctrl+R` 重载 · `Ctrl+Shift+O` 在浏览器打开。
 关闭窗口会驻留托盘，托盘右键可退出或查看关于信息。
@@ -54,8 +54,8 @@ npm run preview -- --open         # 浏览器实时预览加载动画
 
 - **杀毒软件报毒**：社区未签名应用的常见误报；源码全部公开，可自行审计或从源码构建
 - **不想关窗口驻留托盘**：在应用数据目录的 `settings.json` 里设置 `"closeToTray": false`
-- **工作区选择器打不开**（远程桌面环境）：`settings.json` 里设置 `"directoryPicker": "browse"` 改用应用内浏览选择器（`"native"` 为 Windows 原生对话框，默认值）
-- **中文路径添加工作区失败**：官方 0.1.1 系列原生目录选择器存在 UTF-16 截断 bug（已在上游讨论区报告），桌面版已在打包时自动修复（无需用户操作）；若仍失败请反馈具体报错
+- **工作区选择器打不开**：0.1.2-rc.1 起默认使用**应用内浏览式选择器**（`"directoryPicker": "browse"`），规避原生对话框 worker 在远程桌面/受控会话下崩溃；历史配置的 `"native"` 会在启动时自动迁移为 `"browse"`。如需 Windows 原生对话框，请手动改为 `"native"`（仅物理桌面会话可用）
+- **中文路径添加工作区失败**：官方 0.1.1 系列原生目录选择器存在 UTF-16 截断 bug（已在上游讨论区报告），0.1.2-rc.1 起官方已内联修复；桌面版打包补丁自动识别官方修复并保持幂等，无需用户操作
 - **想用最新官方版**：跑官方最新的 `npx @deepseek-ai/dsh web`，桌面版会自动复用
 
 ## 许可
