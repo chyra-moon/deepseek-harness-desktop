@@ -206,7 +206,7 @@ function spawnDsh(port, kind) {
       windowsHide: true,
     });
   }
-  const handle = { child, url: null, exited: false, exit: null, kind };
+  const handle = { child, url: null, exited: false, exit: null, kind, snapshot: () => ({ stdout: out, stderr: err }) };
   let out = "";
   let err = "";
   child.stdout.on("data", (d) => {
@@ -243,9 +243,14 @@ async function trySpawn(port) {
       watchServerCrash();
       return true;
     }
-    const why = handle.exit
-      ? `退出码 ${handle.exit.code}: ${(handle.exit.stderr || "无输出").split("\n").slice(-4).join("\n")}`
-      : "等待就绪超时";
+    let why;
+    if (handle.exit) {
+      why = `退出码 ${handle.exit.code}: ${(handle.exit.stderr || "无输出").split("\n").slice(-4).join("\n")}`;
+    } else {
+      // 诊断:超时未退出时,打印子进程到目前为止的输出,暴露它卡在哪
+      const snap = handle.snapshot ? handle.snapshot() : { stdout: "", stderr: "" };
+      why = `等待就绪超时 | stdout尾部: ${(snap.stdout || "无").slice(-500)} | stderr尾部: ${(snap.stderr || "无").slice(-500)}`;
+    }
     log(`端口 ${port} (${kind}) 启动失败: ${why}`);
     if (serverProc === handle) serverProc = null;
   }
