@@ -252,8 +252,10 @@ async function trySpawn(port) {
       let probeInfo = "";
       if (handle.url) {
         try {
-          const r = await probe(handle.url);
-          probeInfo = ` | url="${handle.url}" probe=${r}`;
+          const r = await httpGet(handle.url, 5000);
+          probeInfo = r
+            ? ` | url="${handle.url}" status=${r.status} bodyHead=${JSON.stringify((r.body || "").slice(0, 200))}`
+            : ` | url="${handle.url}" httpGet=null(超时/无响应)`;
         } catch (e) { probeInfo = ` | probeError=${e.message}`; }
       }
       why = `等待就绪超时${probeInfo} | stdout尾部: ${(snap.stdout || "无").slice(-500)} | stderr尾部: ${(snap.stderr || "无").slice(-500)}`;
