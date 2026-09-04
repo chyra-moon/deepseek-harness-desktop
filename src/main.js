@@ -249,7 +249,14 @@ async function trySpawn(port) {
     } else {
       // 诊断:超时未退出时,打印子进程到目前为止的输出,暴露它卡在哪
       const snap = handle.snapshot ? handle.snapshot() : { stdout: "", stderr: "" };
-      why = `等待就绪超时 | stdout尾部: ${(snap.stdout || "无").slice(-500)} | stderr尾部: ${(snap.stderr || "无").slice(-500)}`;
+      let probeInfo = "";
+      if (handle.url) {
+        try {
+          const r = await probe(handle.url);
+          probeInfo = ` | url="${handle.url}" probe=${r}`;
+        } catch (e) { probeInfo = ` | probeError=${e.message}`; }
+      }
+      why = `等待就绪超时${probeInfo} | stdout尾部: ${(snap.stdout || "无").slice(-500)} | stderr尾部: ${(snap.stderr || "无").slice(-500)}`;
     }
     log(`端口 ${port} (${kind}) 启动失败: ${why}`);
     if (serverProc === handle) serverProc = null;
