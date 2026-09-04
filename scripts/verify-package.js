@@ -19,9 +19,10 @@ const APP = path.join(ROOT, "release", "DeepSeek Harness-win32-x64");
 const RES = path.join(APP, "resources", "app");
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 
-// 官方 0.1.1 中文路径截断 bug 的修复模式(见 scripts/patch-dsh.js);
-// 缺它意味着 worker.cjs 是未打补丁的官方原版,中文路径添加工作区会失败。
-const FIXED_READUTF16 = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)\s*\)\s*end\s*\+=\s*2\s*;/;
+// 中文路径截断 bug 的修复模式(见 scripts/patch-dsh.js);
+// 官方 0.1.2-rc.1 起直接内联修复,写法为 `!(bytes[end] === 0 && bytes[end + 1] === 0)`,
+// 语义与本修复的 `(bytes[end] !== 0 || bytes[end + 1] !== 0)` 等价,一并识别。
+const FIXED_READUTF16 = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*(?:\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)|!\s*\(\s*bytes\[end\]\s*===\s*0\s*&&\s*bytes\[end\s*\+\s*1\]\s*===\s*0\s*\))\s*\)\s*end\s*\+=\s*2\s*;/;
 
 const CHECKS = [
   // 应用源码(缺失 = Issue #3 所述症状)
