@@ -115,14 +115,25 @@ function iconPath(preferTray = false) {
 
 function httpGet(url, timeoutMs = 1500) {
   return new Promise((resolve) => {
-    const req = http.get(url, (res) => {
-      const chunks = [];
-      res.on("data", (c) => chunks.push(c));
-      res.on("end", () =>
-        resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString("utf8") }));
-    });
-    req.setTimeout(timeoutMs, () => { req.destroy(); resolve(null); });
-    req.on("error", () => resolve(null));
+    // 跟随 HTTP 3xx 重定向(上限 5 跳):官方 dsh 0.1.2 起,带 token 的 URL 会 303
+    // 重定向到 `/`,浏览器常规行为;不跟随会让健康检查误判服务器未就绪。
+    const client = (u, hops) => {
+      const req = http.get(u, (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops > 0) {
+            let next;
+            try { next = new URL(res.headers.location, u).toString(); } catch { next = null; }
+            if (next) return client(next, hops - 1);
+          }
+          resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString("utf8") });
+        });
+      });
+      req.setTimeout(timeoutMs, () => { req.destroy(); resolve(null); });
+      req.on("error", () => resolve(null));
+    };
+    client(url, 5);
   });
 }
 function isDsh(res) {
