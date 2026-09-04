@@ -115,11 +115,18 @@ function iconPath(preferTray = false) {
 
 function httpGet(url, timeoutMs = 1500) {
   return new Promise((resolve) => {
-    // 跟随 HTTP 3xx 重定向(上限 5 跳):官方 dsh 0.1.2 起,带 token 的 URL 会 303
-    // 重定向到 `/`,浏览器常规行为;不跟随会让健康检查误判服务器未就绪。
+    // 官方 dsh 0.1.2 起,带 token 的 URL 会 303 重定向到 `/` 并在响应里下发
+    // `dsh-auth-*` 会话 cookie;浏览器靠它完成认证。这里跟随重定向(上限 5 跳)
+    // 并携带 Set-Cookie,否则健康检查会拿到 303/401 而误判服务器未就绪。
+    let cookie = null;
     const client = (u, hops) => {
-      const req = http.get(u, (res) => {
+      const req = http.get(u, { headers: cookie ? { cookie } : {} }, (res) => {
         const chunks = [];
+        const setCookie = res.headers["set-cookie"];
+        if (setCookie) {
+          const list = Array.isArray(setCookie) ? setCookie : [setCookie];
+          cookie = list.map((c) => c.split(";")[0].trim()).filter(Boolean).join("; ");
+        }
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops > 0) {
