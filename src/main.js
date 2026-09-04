@@ -66,7 +66,7 @@ let healthTimer = null; // 探活定时器
 let retryTimer = null; // 启动失败自动重试定时器
 let statusPageActive = false; // 鲸鱼状态页是否显示中(更新进度只写状态页)
 let pendingLoadUi = false;    // 更新期间服务器已就绪,待更新流程结束后载入主 UI
-let settings = { closeToTray: true, workspace: null, directoryPicker: "native" };
+let settings = { closeToTray: true, workspace: null, directoryPicker: "browse" };
 
 const log = (...args) => console.log("[desktop]", ...args);
 
@@ -93,6 +93,14 @@ function loadSettings() {
     const text = fs.readFileSync(settingsFile(), "utf8").replace(/^\uFEFF/, "");
     settings = { ...settings, ...JSON.parse(text) };
   } catch { /* 首次运行无配置文件 */ }
+  // 0.1.2-rc.1 起:默认采用应用内浏览式目录选择器(browse)。原生 Win32 对话框 worker
+  // 在远程桌面/受控会话(如 RDP、向日葵等)下会崩溃("win32 folder dialog worker exited
+  // before reporting a result"),因此把历史配置中的 "native" 迁移为 "browse",彻底规避。
+  if (settings.directoryPicker === "native") {
+    settings.directoryPicker = "browse";
+    saveSettings();
+    log("目录选择器: 由 native 迁移为 browse(避免原生对话框 worker 在远程/受控会话崩溃)");
+  }
 }
 function saveSettings() {
   try {
