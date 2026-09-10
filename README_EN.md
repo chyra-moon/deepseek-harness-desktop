@@ -24,9 +24,9 @@ Run the official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harn
 
 | Edition | Link | Description |
 | --- | --- | --- |
-| Installer (recommended) | [DeepSeek.Harness-0.1.2-rc.1-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
-| Archive | [DeepSeek.Harness-0.1.2-rc.1-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-win32-x64.zip) | Extract and run; the extraction progress is visible |
-| Portable | [DeepSeek.Harness-0.1.2-rc.1-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.2-rc.1/DeepSeek.Harness-0.1.2-rc.1-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
+| Installer (recommended) | [DeepSeek.Harness-0.1.5-rc.1-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.5-rc.1/DeepSeek.Harness-0.1.5-rc.1-x64.exe) | Automatically creates Desktop and Start menu shortcuts |
+| Archive | [DeepSeek.Harness-0.1.5-rc.1-win32-x64.zip](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.5-rc.1/DeepSeek.Harness-0.1.5-rc.1-win32-x64.zip) | Extract and run; the extraction progress is visible |
+| Portable | [DeepSeek.Harness-0.1.5-rc.1-portable-x64.exe](https://github.com/chyra-moon/deepseek-harness-desktop/releases/download/v0.1.5-rc.1/DeepSeek.Harness-0.1.5-rc.1-portable-x64.exe) | Single executable; the first launch extracts in the background and may take several minutes without a progress indicator |
 
 Keyboard shortcuts: `Ctrl+Shift+I` opens Developer Tools 路 `Ctrl+R` reloads 路 `Ctrl+Shift+O` opens the app in your browser.
 Closing the window keeps the app running in the system tray. Right-click the tray icon to quit or view app information.
@@ -53,7 +53,8 @@ When the official dsh project publishes a new release, Dependabot automatically 
 - **Antivirus warning**: False positives are common for unsigned community applications. All source code is public, so you can audit it or build the app yourself.
 - **Do not keep the app in the system tray after closing the window**: Set `"closeToTray": false` in `settings.json` inside the app data directory.
 - **The workspace picker does not open**: Since 0.1.2-rc.1 the app defaults to the **in-app browser-style picker** (`"directoryPicker": "browse"`), avoiding the native dialog worker crash in Remote Desktop / remote-controlled sessions. Existing `"native"` settings are automatically migrated to `"browse"` on startup. Set `"native"` manually only if you need the Windows native dialog on a physical desktop session.
-- **Adding a workspace fails with a Chinese path**: The official 0.1.1 series native directory picker had a UTF-16 truncation bug (reported upstream); 0.1.2-rc.1 ships the official inlined fix, and the desktop packaging patch recognizes it idempotently. No action needed.
+- **Adding a workspace fails with a Chinese path**: The official 0.1.1 series native directory picker had a UTF-16 truncation bug (reported upstream). 0.1.2-rc.1 inlined the official fix, and 0.1.5 replaces the manual byte loop with koffi's native `str16` decoding, so the bug is gone at the root. The desktop packaging patch recognizes both states and stays idempotent. No action needed.
+- **Session data when upgrading to 0.1.5**: Since official dsh `0.1.5` the session log format is V3. Opening an old conversation migrates it into a new generation file while **keeping the original** (`session.v3.jsonl.zstd` next to `session.jsonl.zstd`). New content is written only to the V3 file, which **older app versions cannot read** — so after downgrading, old history still opens but anything produced after the upgrade does not appear. Back up the `sessions` folder (e.g. `%USERPROFILE%\.dsh\sessions`) before a major upgrade.
 - **Use the latest official version**: Run the latest official `npx @deepseek-ai/dsh web`; the desktop app will detect and reuse it automatically.
 
 ## License

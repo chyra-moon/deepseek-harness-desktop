@@ -23,6 +23,9 @@ const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf
 // 官方 0.1.2-rc.1 起直接内联修复,写法为 `!(bytes[end] === 0 && bytes[end + 1] === 0)`,
 // 语义与本修复的 `(bytes[end] !== 0 || bytes[end + 1] !== 0)` 等价,一并识别。
 const FIXED_READUTF16 = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*(?:\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)|!\s*\(\s*bytes\[end\]\s*===\s*0\s*&&\s*bytes\[end\s*\+\s*1\]\s*===\s*0\s*\))\s*\)\s*end\s*\+=\s*2\s*;/;
+// 官方 0.1.5-rc.1 起改为 koffi 原生 str16 解码,手工字节循环已移除(见 scripts/patch-dsh.js),
+// 该 bug 在根因上不复存在,此时"无需补丁"同样是合格状态。
+const REWRITTEN_READUTF16 = /function\s+readUtf16\s*\([^)]*\)\s*\{[\s\S]{0,400}?["']str16["']/;
 
 const CHECKS = [
   // 应用源码(缺失 = Issue #3 所述症状)
@@ -57,8 +60,10 @@ for (const [name, p] of CHECKS) {
 
 // 补丁断言:worker.cjs 必须含 UTF-16 截断修复(防官方包更新导致 patch 失效)
 const workerPath = path.join(RES, "node_modules", "@deepseek-ai", "dsh-host-directory-picker-native", "lib", "worker.cjs");
-const workerPatched = fs.existsSync(workerPath) && FIXED_READUTF16.test(fs.readFileSync(workerPath, "utf8"));
-console.log(`${workerPatched ? "  ✓" : "  ✗ MISSING"} picker worker.cjs UTF-16 截断修复`);
+const workerSrc = fs.existsSync(workerPath) ? fs.readFileSync(workerPath, "utf8") : "";
+const workerRewritten = REWRITTEN_READUTF16.test(workerSrc);
+const workerPatched = FIXED_READUTF16.test(workerSrc) || workerRewritten;
+console.log(`${workerPatched ? "  ✓" : "  ✗ MISSING"} picker worker.cjs UTF-16 截断修复${workerRewritten ? "(官方 koffi str16 实现)" : ""}`);
 if (!workerPatched) failed++;
 
 console.log("=== 发布产物检查 ===");

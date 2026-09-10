@@ -6,7 +6,12 @@ assets/icon-256.png
 assets/tray.png
 assets/tray@2x.png
 *.log
+*-log.txt
+dist-log.txt
+*.bak
+*.bak-*
 preview-status.html
+*.preview.md
 .tmp-*
 .shot-app/
 .npm-cache/

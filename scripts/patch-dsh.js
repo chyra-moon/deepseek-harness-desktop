@@ -15,8 +15,11 @@
  *
  * 修复:仅当**完整 2 字节码元**为 0x0000(NUL 终止)时才停止。
  *
- * 本脚本幂等:已打补丁则跳过;找不到期望代码则报错退出(防止官方包变更后
- * 静默失效;此时应核对官方是否已修复并移除本补丁)。
+ * 本脚本幂等,共识别三种状态:
+ *   1) 官方已内联修复(0.1.2-rc.1 起)     -> 跳过
+ *   2) 官方已改用 koffi 原生 str16(0.1.5) -> bug 不复存在,跳过
+ *   3) 仍是带 bug 的手工字节循环            -> 打补丁
+ * 三者都不匹配时(官方又换了实现)报错退出,提示人工核对,避免静默失效。
  */
 
 const fs = require("node:fs");
@@ -33,6 +36,10 @@ const BROKEN_RE = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*bytes\[e
 // 官方 0.1.2-rc.1 已内联修复,写法为 `!(bytes[end] === 0 && bytes[end + 1] === 0)`;
 // 与本补丁改造后的 `(bytes[end] !== 0 || bytes[end + 1] !== 0)` 语义等价,一并识别为"已修复"。
 const FIXED_RE = /while\s*\(\s*end\s*\+\s*1\s*<\s*bytes\.length\s*&&\s*(?:\(\s*bytes\[end\]\s*!==\s*0\s*\|\|\s*bytes\[end\s*\+\s*1\]\s*!==\s*0\s*\)|!\s*\(\s*bytes\[end\]\s*===\s*0\s*&&\s*bytes\[end\s*\+\s*1\]\s*===\s*0\s*\))\s*\)\s*end\s*\+=\s*2\s*;/;
+// 官方 0.1.5-rc.1 起换了实现:手工字节循环被整段移除,改为 koffi 原生 str16 解码
+// (`koffi.decode(pointer.subarray(0, pointerSize), "str16")`)。此时该 bug 已在根因上
+// 不复存在,不再有可打的补丁,识别为"无需补丁"并跳过——否则会给依赖安装制造假故障。
+const REWRITTEN_RE = /function\s+readUtf16\s*\([^)]*\)\s*\{[\s\S]{0,400}?["']str16["']/;
 
 function main() {
   if (!fs.existsSync(TARGET)) {
@@ -42,6 +49,10 @@ function main() {
   const src = fs.readFileSync(TARGET, "utf8");
   if (FIXED_RE.test(src)) {
     console.log("[patch:dsh] 已存在修复,跳过。");
+    return;
+  }
+  if (REWRITTEN_RE.test(src) && !BROKEN_RE.test(src)) {
+    console.log("[patch:dsh] 官方已改用 koffi 原生 str16 解码(字节循环已移除),bug 不复存在,无需补丁。");
     return;
   }
   if (!BROKEN_RE.test(src)) {
